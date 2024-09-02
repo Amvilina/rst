@@ -5,7 +5,7 @@
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   - Сервис с определённой частотой генерирует сделки
-  - Выходной поток - Случайная сделка (``Transaction``)
+  - Выходной поток - случайная сделка (``Transaction``)
   - Задача состоит из 5 пунктов:
 
     - Генерация сообщений с фиксированной частотой
@@ -33,7 +33,7 @@
       timer:            # настройки таймера
         clock: realtime # генерировать сообщения с текущим временем системы
                         # если написать 'monotonic', то будут простые 'импульсы' без информации о текущем времени
-        interval: 1s    # как часто генерировать сигнал
+        interval: 3s    # как часто генерировать сигнал
       dump: yes
 
 Генерация случайной сделки
@@ -201,7 +201,7 @@
 
   - Файл сборки, с помощью которого мы логику сформируем в модуль для дальнейшего использования ``meson.build``:
 
-    .. code:: meson
+    .. code:: 
 
         project('generator', 'c', 'cpp'
           , version: '0.2.1'
@@ -222,3 +222,83 @@
 
 Конфиг процессора сервиса
 ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  - ``generator-processor.yaml``
+
+    .. code:: yaml
+
+      logger:
+        type: spdlog 
+        levels:
+          tll: INFO
+      
+      processor.module:
+        # название модуля, описанного в meson.build в shared_library(...)
+        - module: build/tll-generator
+      
+      processor.objects:
+        # входной поток - таймер
+        input-channel:                     
+          init:                           
+            tll.proto: timer                 
+            timer:
+              clock: monotonic
+              interval: 3s
+            dump: yes
+          depends: generator
+      
+        # будем записывать выходные данные в файл для проверки
+        output-channel:              
+          init:
+            tll.proto: file             
+            tll.host: output.dat       
+            scheme: yaml://../comtest/transaction.yaml
+            dir: w                          
+            autoseq: true
+            dump: scheme
+            
+        generator:
+          # в init мы пишем строчку из channel_protocol() из класса Generator
+          init: generator://
+          channels: 
+            input: input-channel
+            output: output-channel
+          depends: output-channel
+
+Запуск и проверка работы
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+  - Запускаем сервис: ``gentest$ tll-processor generator-processor.yaml``
+  - Каждые 3 секунды мы будем видеть в логах подобное сообщение:
+
+    .. code::
+
+      2024-09-02 18:53:13.872 INFO tll.channel.input-channel: Recv message: type: Data, msgid: 2, name: absolute, seq: 0, size: 8
+        {ts: 2024-09-02T15:53:13.872665404}
+      
+      2024-09-02 18:53:13.872 INFO tll.channel.output-channel: Post message: type: Data, msgid: 10, name: Transaction, seq: 0, size: 32
+        time: 2024-09-02T15:53:13.872665404
+        id: 1
+        price: 183.48
+        count: 73
+  - Проверим наш файл: ``gentest$ tll-read output.dat -seq 0:5``:
+
+    .. code::
+
+      - seq: 0
+        name: Transaction
+        data:
+          time: '2024-09-02T15:57:53.492443617Z'
+          id: 1
+          price: '976.12'
+          count: 69
+      
+      - seq: 1
+        name: Transaction
+        data:
+          time: '2024-09-02T15:57:54.493915363Z'
+          id: 2
+          price: '769.11'
+          count: 74
+      ...
+
