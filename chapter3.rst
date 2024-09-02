@@ -291,7 +291,7 @@
         id: 1
         price: 183.48
         count: 73
-  - Проверим наш файл: ``gentest$ tll-read output.dat -seq 0:5``:
+  - Проверим наш файл: ``gentest$ tll-read output.dat --seq 0:5``:
 
     .. code::
 

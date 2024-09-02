@@ -39,3 +39,118 @@ TCP vs UDP
   - ``TCP`` обладает меньшей скоростью, однако огромной отказоустойчивостью. Может гарантировать, что получатель примет именно то, что было отправлено
   - Из-за этих особенностей ``UDP`` часто используется при передаче видео или голоса, потому что потеря отдельных пакетов не отразится на качестве всей картинки / аудиодорожки
   - ``TCP`` же используется везде, где данные очень критичны, в том числе при обмене сообщениями между сервисами биржи. Будет неловко, если сделки клиентов пропадут или придут не в том порядке
+
+Связываем сервисы комиссии и генерации
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	- Будем использовать канал pub+tcp, который реализует за нас протокол и отношение клиент-сервер
+	- Нужно сделать обновления в ``generator.cc`` для обработки подключения клиента:
+
+		.. code:: c++
+
+			// ...
+
+			// для обработки сообщений подключение / отключение
+			#include "tll/channel/tcp-scheme.h"
+
+			// ...
+
+					// добавим новую переменную в класс - состояние клиент
+    			bool _clientConnected = false;
+
+    	// ...
+
+    	    int callback_tag(tll::channel::TaggedChannel<Input> * c, const tll_msg_t *msg) {
+        
+        			// если клиент не подключён, то не генерируем сообщение
+        			if (!_clientConnected)
+          				return 0;
+
+      // ...
+
+       		// теперь к выходному каналу подключается клиент
+    			int callback_tag(tll::channel::TaggedChannel<Output> * c, const tll_msg_t *msg) {
+    			    
+    			    // если сообщение подключения, то поднимаем флаг
+    			    if (msg->msgid == tcp_scheme::Connect::meta_id()) {
+    			      _clientConnected = true;
+    			    }
+
+    			    // если сообщение отключения, то опускаем флаг
+    			    if (msg->msgid == tcp_scheme::Disconnect::meta_id()) {
+    			      _clientConnected = false;
+    			    }
+    			    
+    			    return 0;
+    			}
+
+    	// ...
+
+    - Теперь обновим конфиги ``generator-processor.yaml``:
+
+    	..code:: yaml
+
+    		# ...
+
+    			# обновляем только выходной канал
+    		  output-channel:
+    				init:
+    				  tll.proto: pub+tcp       # мы отправляем данные через pub+tcp
+    				  tll.host: ../pub.socket  # можно написать localhost:8080 или любой доступный адрес
+    				  												 # можно просто воспользоваться сокетами в линуксе, т.к. одна машинка
+    				  mode: server						 # генератор - сервер, он отправляет данные
+    				  scheme: yaml://../comtest/transaction.yaml
+    				  dump: scheme
+
+    		# ...
+
+    - Аналогично обновим конфиги ``commission-processor.yaml``:
+
+    	..code:: yaml
+
+    		# ...
+
+    			  input-channel:                      
+    					init:                        
+    					  tll.proto: pub+tcp                 
+    					  tll.host: ../pub.socket  # подключаемся к тому же адресу / сокету
+    					  mode: client             # сервис - клиент, он получает данные
+    					  scheme: yaml://transaction.yaml 
+    					  dump: yes                       
+    					depends: logic
+
+    		# ...
+
+    - Для проверки открываем 2 окна терминала и запускаем команды:
+
+    	``gentest$ tll-processor generator-processor.yaml``
+    	``comtest$ tll-pyprocessor commission-processor.yaml``
+
+    - Нужно запускать сначала сервер / генератор, потому что иначе клиент не поймёт куда подключаться и будет ошибка
+    - В логах 2 сервисов будут видны сообщения получения / передачи сообщения
+    - Проверить работу можно: ``comtest$ tll-read output.dat --seq 0:2``:
+
+    	..code::
+
+    		- seq: 0
+				  name: Commission
+				  data:
+				    time: '2024-09-02T18:55:08.641117473Z'
+				    id: 1
+				    value: '499.63'
+				
+				- seq: 1
+				  name: Commission
+				  data:
+				    time: '2024-09-02T18:55:11.643263104Z'
+				    id: 2
+				    value: '268.93'
+				
+				- seq: 2
+				  name: Commission
+				  data:
+				    time: '2024-09-02T18:55:14.641143454Z'
+				    id: 3
+				    value: '33.53'
+
+
