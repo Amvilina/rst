@@ -82,7 +82,7 @@
           static std::random_device _rd;
           static std::mt19937 _gen;
           
-          // случайные распределения цены и количества, с заданными границами
+          // случайные распределения цены и количества, границы задаются в конструкторе
           static std::uniform_int_distribution<int64_t> _priceDistr;
           static std::uniform_int_distribution<uint16_t> _countDistr;
       };
@@ -105,23 +105,33 @@
 
     .. code:: c++
 
-      #include "tll/channel/module.h"       // нужно, чтобы объявить модуль, который затем использовать в '.yaml' файлах
-      #include "tll/channel/tagged.h"       // класс, от которого мы будем наследоваться для упрощения реализации логики
-      #include "tll/scheme/channel/timer.h" // кля обработки входного сообщения
-      #include "transaction.h"              // кля генерации сделки
+      // нужно, чтобы объявить модуль, который затем можно использовать в '.yaml' файлах
+      #include "tll/channel/module.h" 
+
+      // класс, от которого мы будем наследоваться для упрощения реализации логики
+      #include "tll/channel/tagged.h"  
+
+      // для обработки входного сообщения     
+      #include "tll/scheme/channel/timer.h" 
+
+      // для генерации сделки
+      #include "transaction.h"              
       
-      // в файле 'tll/channel/tagged.h' описана логика, с помощью которой можно создавать каналы с различными именами
+      // в файле 'tll/channel/tagged.h' описана вспомогательная логика
+      // с помощью неё можно создавать потоки с различными именами
       // для простоты будущих реализаций там описаны 2 стандартных тэга: 
       using tll::channel::Input;
       using tll::channel::Output;
-      // эти тэги позволяют работать с каналами 'input' и 'output', которые мы уже использовали, когда писали логику на питоне
+      // эти тэги позволяют работать с потоками 'input' и 'output'
+      // их мы уже использовали, когда писали логику на питоне
       
-      // в параметры шаблона передаётся текущий класс и все тэги, которые описывают обрабатываем каналы
+      // в параметры шаблона передаётся текущий класс
+      // и все тэги, которые описывают обрабатываемые потоки
       class Generator : public tll::channel::Tagged<Generator, Input, Output>
       {
       private:
 
-          // в переменных будем хранить входной и выходной каналы
+          // в переменных будем хранить входной и выходной потоки
           tll::Channel * _input = nullptr;
           tll::Channel * _output = nullptr;
       public:
@@ -143,8 +153,8 @@
               if (outputs.size() != 1)
                   return _log.fail(EINVAL, "Output size must be 1, got {}", outputs.size());
                 
-              // сохраняем каналы в переменные
-              // в inputs хранятся std::pair<>, first - указатель канала
+              // сохраняем потоки в переменные
+              // в inputs хранятся объекты std::pair<>, first - указатель канала
               _input = inputs.begin()->first;
               _output = outputs.begin()->first; 
               
@@ -162,10 +172,6 @@
               if (c != _input)
                   return 0;
               
-              // проверяем, что пришло сообщение с текущим временем
-              if (msg->msgid != timer_scheme::absolute::id)
-                  return 0;
-
               // получаем данные из этого сообщения
               // в структуре 'absolute' хранится единственное поле: 'ts' - текущее время
               auto timer = static_cast<const timer_scheme::absolute *>(msg->data);
@@ -176,10 +182,9 @@
               // создаём сообщение для отправки
               tll_msg_t transactionMsg = {
                   .type = TLL_MESSAGE_DATA,    // сообщение содержит данные
-                  .msgid = Transaction::MsgId,
-                  .seq = msg->seq,
-                  .data = &tr,
-                  .size = sizeof(tr)
+                  .msgid = Transaction::MsgId, // с нужным 'msgid'
+                  .data = &tr,                 // в 'data' хранится указатель на нужную структуру
+                  .size = sizeof(tr)           // а в 'size' её размер
               };
             
               // отправляем в выходной канал сообщение
@@ -201,20 +206,25 @@
 
   - Файл сборки, с помощью которого мы логику сформируем в модуль для дальнейшего использования ``meson.build``:
 
-    .. code:: 
+    .. code:: meson
 
+        # Название проекта может быть любое
         project('generator', 'c', 'cpp'
           , version: '0.2.1'
           , default_options : ['cpp_std=c++17', 'werror=true', 'optimization=2']
           , meson_version: '>= 0.53'
           )
 
+        # Практически любой сервис будет зависеть от этих 2 библиотек
+        # fmt - для логов ( форматирование правильное )
+        # tll - для реализации логики сервиса
         fmt = dependency('fmt')
         tll = dependency('tll')
         
+        # Создаём модуль с названием tll-generator
         shared_library('tll-generator'
-          , ['generator.cc']
-          , dependencies : [fmt, tll]
+          , ['generator.cc']          # Файл с классом логики
+          , dependencies : [fmt, tll] # Зависимости
           , install: true
           )
 
