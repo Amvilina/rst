@@ -252,7 +252,7 @@
           init:                           
             tll.proto: timer                 
             timer:
-              clock: monotonic
+              clock: realtime
               interval: 3s
             dump: yes
           depends: generator
@@ -306,7 +306,7 @@
       - seq: 1
         name: Transaction
         data:
-          time: '2024-09-02T15:57:54.493915363Z'
+          time: '2024-09-02T15:57:56.493915363Z'
           id: 2
           price: '769.11'
           count: 74
