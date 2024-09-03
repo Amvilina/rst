@@ -114,8 +114,6 @@
 
               return tr;
           }
-      
-      
       };
 
 Логика обработки сообщений ( C++ )
@@ -194,7 +192,7 @@
 
               // создаём случайную сделку
               TransactionGenerator tg;
-              Transaction tr = tg.GenerateRandomWithTime(timer->ts)
+              Transaction tr = tg.GenerateRandomWithTime(timer->ts);
                 
               // создаём сообщение для отправки
               tll_msg_t transactionMsg = {
