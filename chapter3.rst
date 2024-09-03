@@ -80,6 +80,7 @@
       #pragma once
       #include <random>                   // для генерации случайных данных
       #include "../comtest/transaction.h" // только что созданный файл со структурой сообщения
+      #include <tll/util/time.h>          // для tll::time_point
       
       class TransactionGenerator {
       private:
