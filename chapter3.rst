@@ -39,64 +39,84 @@
 Генерация случайной сделки
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  - Сама сделка и процесс её генерации описан в файле ``transaction.h``:
+  - Для начала нам нужно сгенерировать С++ структуру из ``transaction.yaml`` файла, который был описан раньше, это можно сделать командой: ``tll-schemegen ../comtest/transaction.yaml -o ../comtest/transaction.h``
+  - Сам файл выглядит так, ``../comtest/transaction.h``:
 
     .. code:: c++
 
       #pragma once
-      #include <random>                 // для генерации случайных данных          
-      #include "tll/util/time.h"        // тип данных - time_point
-      #include "tll/util/fixed_point.h" // тип данных - fixed_point
+
+      #include <tll/scheme/types.h>
       
-      class Transaction {
-      public:
-
-          // напоминаю, что у Transaction нами назначен msgid = 10
-          static constexpr int MsgId = 10;
-          
-          // для более короткой записи типа данных - вещественное, с 2 знаками после запятой     
-          using F2 = tll::util::FixedPoint<int64_t, 2>;
-          
-          // поля, аналогичные полям, которые описаны в файле 'transaction.yaml'
-          tll::time_point time;
+      #pragma pack(push, 1)
+      
+      template <typename T>
+      struct tll_message_info {};
+      
+      static constexpr std::string_view scheme_string = R"(yamls+gz://eJx9jbsKwzAMRfd+hTYtDTSlZPB3dC/GdkCQyMYPaAn598glyeBCN1107zkdsJ6dAnxGzUmbTJ7xAkBWQX+TYyQ32aTkAuhg2duZZodXyJ9QE3EeHhJ9qPOkYMHokp/KlyYFTvLF2sZ9/ApeVriuDZhsi20bIZL57z48I72dvf86jC+iPglFEP0gng1dylDf)";
+      
+      struct Transaction
+      {
+          std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<int64_t, std::nano>> time;
           int64_t id;
-          F2 price;
+          tll::scheme::FixedPoint<int64_t, 2> price;
           uint16_t count;
-      public:
-
-          // функция, для генерации случайной сделки с конкретным временем
-          static Transaction GenerateRandom(tll::time_point tp) {
-              Transaction tr;                   // создаём сделку
-              tr.time = tp;                     // записываем время
-              tr.id = _nextTransactionId++;     // записываем id, а затем увеличиваем его для будущих сделок
-              tr.price = F2(_priceDistr(_gen)); // генерируем число, конвертируем его в F2, записываем как цену
-              tr.count = _countDistr(_gen);     // генерируем число, записываем как количество
-              return tr;
-          }
-      private:
-
-          // id следующей сделки, нужно для генерации
-          static int64_t _nextTransactionId;
-          
-          // объекты для генерации случайных чисел
-          static std::random_device _rd;
-          static std::mt19937 _gen;
-          
-          // случайные распределения цены и количества, границы задаются в конструкторе
-          static std::uniform_int_distribution<int64_t> _priceDistr;
-          static std::uniform_int_distribution<uint16_t> _countDistr;
       };
       
-      // первая сделка будет иметь id = 1
-      int64_t Transaction::_nextTransactionId = 1;
+      template <>
+      struct tll_message_info<Transaction>
+      {
+          static constexpr int id = 10;
+          static constexpr std::string_view name = "Transaction";
+      };
+      #pragma pack(pop)
+
+
+
+  - Сама сделка и процесс её генерации описан в файле ``transaction-generator.h``:
+
+    .. code:: c++
+
+      #pragma once
+      #include <random>                   // для генерации случайных данных
+      #include "../comtest/transaction.h" // только что созданный файл со структурой сообщения
       
-      // создаём объекты
-      std::random_device Transaction::_rd{ };
-      std::mt19937 Transaction::_gen{ _rd() };
+      class TransactionGenerator {
+      private:
+
+          // id следующей сгенерированной сделки
+          int64_t _nextTransactionId = 1;
+          
+          // объекты для генерации случайных чисел
+          std::random_device _rd;
+          std::mt19937 _gen;
+          
+          // равномерное распределение с границами, которые задаются в конструкторе
+          std::uniform_int_distribution<int64_t> _priceDistr;
+          std::uniform_int_distribution<uint16_t> _countDistr;
+      public:
+          TransactionGenerator() 
+              : 
+              _gen{ _rd() }, 
+              _priceDistr{ 1, 100000 }, // [0.01 - 1000.00]
+              _countDistr{ 1, 100 }
+              {}
+          
+          Transaction GenerateRandomWithTime( tll::time_point tp ) {
+              Transaction tr;
+              tr.time = tp;
+              tr.id = _nextTransactionId++;
+
+              // _priceDistr(_gen) и _countDistr(_gen) возвращают
+              // случайные целые числа из заданных промежутков
+              tr.price = tll::util::FixedPoint<int64_t, 2> ( _priceDistr(_gen) );
+              tr.count = _countDistr(_gen);
+
+              return tr;
+          }
       
-      // устанавливаем границы в конструкторе
-      std::uniform_int_distribution<int64_t> Transaction::_priceDistr{ 1, 100000 }; // [0.01 - 1000.00]
-      std::uniform_int_distribution<uint16_t> Transaction::_countDistr{ 1, 100 };
+      
+      };
 
 Логика обработки сообщений ( C++ )
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -106,18 +126,18 @@
     .. code:: c++
 
       // нужно, чтобы объявить модуль, который затем можно использовать в '.yaml' файлах
-      #include "tll/channel/module.h" 
+      #include <tll/channel/module.h>
 
       // класс, от которого мы будем наследоваться для упрощения реализации логики
-      #include "tll/channel/tagged.h"  
+      #include <tll/channel/tagged.h>  
 
       // для обработки входного сообщения     
-      #include "tll/scheme/channel/timer.h" 
+      #include <tll/scheme/channel/timer.h> 
 
       // для генерации сделки
-      #include "transaction.h"              
+      #include "transaction-generator.h"              
       
-      // в файле 'tll/channel/tagged.h' описана вспомогательная логика
+      // в файле <tll/channel/tagged.h> описана вспомогательная логика
       // с помощью неё можно создавать потоки с различными именами
       // для простоты будущих реализаций там описаны 2 стандартных тэга: 
       using tll::channel::Input;
@@ -143,20 +163,16 @@
           // параметры аналогичны питоновским
           int _init(const tll::Channel::Url &, tll::Channel *master) {
 
-              // получаем списки каналов
-              auto & inputs = _channels.get<Input>();
-              auto & outputs = _channels.get<Output>();
-              
-              // проверяем, что у нас ровно по одному каналу
-              if (inputs.size() != 1)
-                  return _log.fail(EINVAL, "Input size must be 1, got {}", inputs.size());
-              if (outputs.size() != 1)
-                  return _log.fail(EINVAL, "Output size must be 1, got {}", outputs.size());
-                
+              // проверяем, что у нас ровно по одному каналу, т.е. в промежутке [1, 1]
+              if (check_channels_size<Input>(1, 1))
+                  return EINVAL;
+              if (check_channels_size<Output>(1, 1))
+                  return EINVAL;
+
               // сохраняем потоки в переменные
-              // в inputs хранятся объекты std::pair<>, first - указатель канала
-              _input = inputs.begin()->first;
-              _output = outputs.begin()->first; 
+              // в списках хранятся объекты std::pair<>, first - указатель канала
+              _input = _channels.get<Input>().begin()->first;
+              _output = _channels.get<Output>().begin()->first; 
               
             return 0;
           }
@@ -177,14 +193,15 @@
               auto timer = static_cast<const timer_scheme::absolute *>(msg->data);
 
               // создаём случайную сделку
-              Transaction tr = Transaction::GenerateRandom(timer->ts);
+              TransactionGenerator tg;
+              Transaction tr = tg.GenerateRandomWithTime(timer->ts)
                 
               // создаём сообщение для отправки
               tll_msg_t transactionMsg = {
-                  .type = TLL_MESSAGE_DATA,    // сообщение содержит данные
-                  .msgid = Transaction::MsgId, // с нужным 'msgid'
-                  .data = &tr,                 // в 'data' хранится указатель на нужную структуру
-                  .size = sizeof(tr)           // а в 'size' её размер
+                  .type = TLL_MESSAGE_DATA,                   // сообщение содержит данные
+                  .msgid = tll_message_info<Transaction>::id, // с нужным 'msgid'
+                  .data = &tr,                                // в 'data' хранится указатель на нужную структуру
+                  .size = sizeof(tr)                          // а в 'size' её размер
               };
             
               // отправляем в выходной канал сообщение
@@ -194,7 +211,7 @@
           
           // данный метод вызывается при появлении сообщения в канале Output / 'output'
           int callback_tag(tll::channel::TaggedChannel<Output> * c, const tll_msg_t *msg) {   
-              // ничего не делаем, потому что не ожидаем сообщений от выходного канала
+              // ничего не делаем, потому что не ожидаем сообщений от выходного канала (пока что!)
               return 0; 
           }
       };
