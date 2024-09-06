@@ -153,6 +153,7 @@
           // в переменных будем хранить входной и выходной потоки
           tll::Channel * _input = nullptr;
           tll::Channel * _output = nullptr;
+          TransactionGenerator _transactionGenerator = {};
       public:
 
           // название нашего сервиса
@@ -192,8 +193,7 @@
               auto timer = static_cast<const timer_scheme::absolute *>(msg->data);
 
               // создаём случайную сделку
-              TransactionGenerator tg;
-              Transaction tr = tg.GenerateRandomWithTime(timer->ts);
+              Transaction tr = _transactionGenerator.GenerateRandomWithTime(timer->ts);
                 
               // создаём сообщение для отправки
               tll_msg_t transactionMsg = {
