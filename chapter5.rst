@@ -25,6 +25,9 @@
       #include "transaction-generator.h"
       
       class GeneratorActive : public tll::channel::Base<GeneratorActive> {
+      private:
+          TransactionGenerator _transactionGenerator = {};
+
       public:
           static constexpr std::string_view channel_protocol() { return "generator-active"; }
 
@@ -38,11 +41,9 @@
           // timeout - максимальное время на обработку, чаще всего 0 == как можно быстрее
           // flags - пока не используется
           int _process(long timeout, int flags) {
-          
-              TransactionGenerator tg;
 
               // генерируем сделку с текущим временем
-              Transaction tr = tg.GenerateRandomWithTime(tll::time::now());
+              Transaction tr = _transactionGenerator.GenerateRandomWithTime(tll::time::now());
           
               // создаём сообщение
               tll_msg_t transactionMsg = {
@@ -179,13 +180,13 @@
 
       2024-09-04 14:20:34.238 INFO tll.channel.input-channel: Recv message: type: Data, msgid: 10, name: Transaction, seq: 0, size: 26
         time: 2024-09-04T11:20:34.238364504
-        id: 1
+        id: 2
         price: 198.73
         count: 64
 
       2024-09-04 14:20:34.239 INFO tll.channel.output-channel: Post message: type: Data, msgid: 20, name: Commission, seq: 0, size: 24
         time: 2024-09-04T11:20:34.238364504
-        id: 1
+        id: 2
         value: 127.19
 
       ...
