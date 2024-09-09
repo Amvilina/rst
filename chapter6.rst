@@ -51,4 +51,130 @@ Overview stream+
   - Такая архитектура позволяет быстрее находить нужные нам сообщения, потому что данные хранятся древовидным образом
   - ``rotate+`` является просто инструментом, с помощью которого можно добиться желаемого результута. При получении специального сообщения ``Rotate`` происходит создание нового файла. Когда конкретно отправлять специальное сообщение и, соответственно, разбивать данные на файлы решает логика 'выше' ``rotate+``
 
+Тестирование stream+
+^^^^^^^^^^^^^^^^^^^^
+
+  - Свяжем наши 2 сервиса: комиссионный и генератора с помощью ``stream+pub+tcp``
+  - ``generator-processor.yaml``:
+
+    .. code:: yaml
+
+      # ...
+
+        output-channel:
+
+          # generator - сервер / производитель данных
+          init:
+            tll.proto: stream+pub+tcp # здесь добавляется просто stream+
+            tll.host: ../pub.socket
+            mode: server
+            autoseq: true
+            dump: yes
+            scheme: yaml://../comtest/transaction.yaml
+
+            # новые поля, обязательные для stream+:
+
+            # через этот канал будет осуществляться связь с отдельными клиентами
+            # мы используем просто tcp, потому что каждый клиент захочет получать свои данные
+            # нам здесь не нужна трансляция данных, как в pub+tcp
+            request: tcp://../request.socket
+            
+            # хранилище, где будут храниться все отправленные сообщения
+            # обязательно должна быть директория, поэтому перед запуском её нужно создать:
+            # $ mkdir storage
+            storage: rotate+file://storage/output
+          
+      # ...
+
+  - ``commission-processor.yaml``:
+
+    .. code:: yaml
+
+      # ...
+
+        input-channel:
+
+          # commission - клиент / потребитель данных
+          init:
+            tll.proto: stream+pub+tcp
+            tll.host: ../pub.socket 
+            mode: client         
+            request: tcp://../request.socket
+            scheme: yaml://transaction.yaml
+            dump: yes
+
+          # параметры открытия канала
+          open:
+            mode: online  # проверим сначала в online режиме
+
+          depends: logic
+          
+      # ...
+
+  - Запустим сначала сервер: ``/gentest$ tll-processor generator-processor``, подождём пока он сгенерирует данные. Затем запустим клиента в другом окне терминала: ``/comtest$ tll-pyprocessor commission-processor``. В итоге мы начнём получать онлайн данные ( в нашем случае, начиная с ``seq = 10`` ), не имея доступа к старым:
+
+    .. code::
+
+      2024-09-09 17:06:21.039 INFO tll.channel.input-channel: Recv message: type: Data, msgid: 10, name: Transaction, seq: 10, size: 26
+        time: 2024-09-09T14:06:21.038702405
+        id: 11
+        price: 97.21
+        count: 45
+      
+      2024-09-09 17:06:21.040 INFO tll.channel.output-channel: Post message: type: Data, msgid: 20, name: Commission, seq: 10, size: 24
+        time: 2024-09-09T14:06:21.038702405
+        id: 11
+        value: 43.74
+
+      ...
+
+  - Можем не останавливать наш сервер. Изменим параметры открытия канала у клиента:
+
+    .. code:: yaml
+
+      # ...
+
+          open:
+            mode: seq
+            seq: 0     # получим все данные, начиная с самого начала
+
+      # ...
+
+  - И снова запустим клиента: ``/comtest$ tll-pyprocessor commission-processor``:
+
+    .. code::
+
+      2024-09-09 17:09:45.479 INFO tll.channel.input-channel: Recv message: type: Data, msgid: 10, name: Transaction, seq: 0, size: 26
+        time: 2024-09-09T14:06:11.037913425
+        id: 1
+        price: 358.02
+        count: 42
+      
+      2024-09-09 17:09:45.480 INFO tll.channel.output-channel: Post message: type: Data, msgid: 20, name: Commission, seq: 0, size: 24
+        time: 2024-09-09T14:06:11.037913425
+        id: 1
+        value: 150.37
+
+      ...
+
+      2024-09-09 17:09:45.483 INFO tll.channel.input-channel: Recv message: type: Control, msgid: 10, name: Online, seq: 37, size: 0
+
+      - После этого сообщения мы начинаем получать онлайн данные -
+
+      ...                                                      
+
+      2024-09-09 17:09:46.235 INFO tll.channel.input-channel: Recv message: type: Data, msgid: 10, name: Transaction, seq: 38, size: 26
+        time: 2024-09-09T14:09:46.235246986
+        id: 39
+        price: 510.24
+        count: 93
+      
+      2024-09-09 17:09:46.236 INFO tll.channel.output-channel: Post message: type: Data, msgid: 20, name: Commission, seq: 38, size: 24
+        time: 2024-09-09T14:09:46.235246986
+        id: 39
+        value: 474.52
+
+      
+
+
 
