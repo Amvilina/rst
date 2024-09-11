@@ -70,7 +70,7 @@ Config-файлы и python
               self.config_info["input-open-params.seq"] = lambda: str(self._lastSeq)
         
         
-          def _close():
+          def _close(self):
               super()._close()
               
               # в момент закрытия мы снова обновляем значение в конфиге
