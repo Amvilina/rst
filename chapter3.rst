@@ -190,7 +190,7 @@
               // создаём сообщение для отправки
               tll_msg_t transaction_msg = {
                   .type = TLL_MESSAGE_DATA,                          // сообщение содержит данные
-                  .msgid = transaction_scheme::Transaction::msg_id, // с нужным 'msgid'
+                  .msgid = transaction_scheme::Transaction::msg_id,  // с нужным 'msgid'
                   .data = &tr,                                       // в 'data' хранится указатель на нужную структуру
                   .size = sizeof(tr)                                 // а в 'size' её размер
               };
