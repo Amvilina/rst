@@ -22,11 +22,11 @@
 
       #include <tll/channel/base.h>
       #include <tll/channel/module.h>
-      #include "transaction-generator.h"
+      #include "./messages/transaction-generator.h"
       
       class GeneratorActive : public tll::channel::Base<GeneratorActive> {
       private:
-          TransactionGenerator _transactionGenerator = {};
+          TransactionGenerator _transaction_generator = {};
 
       public:
           static constexpr std::string_view channel_protocol() { return "generator-active"; }
@@ -43,18 +43,18 @@
           int _process(long timeout, int flags) {
 
               // генерируем сделку с текущим временем
-              Transaction tr = _transactionGenerator.GenerateRandomWithTime(tll::time::now());
+              auto tr = _transaction_generator.generate_random_with_time(tll::time::now());
           
               // создаём сообщение
-              tll_msg_t transactionMsg = {
+              tll_msg_t transaction_msg = {
                   .type = TLL_MESSAGE_DATA,                
-                  .msgid = tll_message_info<Transaction>::id, 
+                  .msgid = transaction_scheme::Transaction::msg_id, 
                   .data = &tr,                                
                   .size = sizeof(tr)
               };
 
               // вызываем коллбэк, чтобы другие каналы могли его получить
-              _callback(&transactionMsg);
+              _callback(&transaction_msg);
               return 0;
           }
         
@@ -78,7 +78,7 @@
 
       # ...
 
-  - Собираем всё командой ``/gentest$ meson build; ninja -vC build``
+  - Собираем всё командой ``$ meson build --wipe; ninja -vC build``
 
 
 Использование активного канала в сервисе комиссий
@@ -92,14 +92,14 @@
 
       # подключаём созданный нами модуль
       processor.module:
-      - module: ../gentest/build/tll-generator-active
+      - module: build/tll-generator-active
 
       processor.objects:
         input-channel:
           init:
             tll.proto: generator-active
             dump: scheme
-            scheme: yaml://transaction.yaml
+            scheme: yaml://./messages/transaction.yaml
           depends: logic
 
         # ... output-channel ...
@@ -113,7 +113,7 @@
             output: output-channel 
           depends: output-channel
 
-  - Проверим, как это работает: ``/comtest$ tll-pyprocessor commission-processor.yaml``:
+  - Проверим, как это работает: ``$ tll-pyprocessor commission-processor.yaml``:
 
     .. code:: 
 
@@ -158,12 +158,12 @@
                              # из логов в прошлом разделе видно, что Transaction - 26 byte
               interval: 3s
             dump: scheme
-            scheme: yaml://transaction.yaml
+            scheme: yaml://./messages/transaction.yaml
           depends: logic
 
       # ...
 
-  - Проверка ``/comtest$ tll-pyprocessor commission-processor.yaml``:
+  - Проверка ``$ tll-pyprocessor commission-processor.yaml``:
 
     .. code:: 
 
