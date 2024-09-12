@@ -88,10 +88,10 @@ TCP vs UDP
             output-channel:
               init:
                 tll.proto: pub+tcp      # мы отправляем данные через pub+tcp
-                tll.host: ../pub.socket # можно написать localhost:8080 или любой доступный
+                tll.host: ./pub.socket  # можно написать localhost:8080 или любой доступный
                                         # можно просто воспользоваться сокетами в линуксе, т.к. одна машинка
                 mode: server            # генератор - сервер, он отправляет данные
-                scheme: yaml://../comtest/transaction.yaml
+                scheme: yaml://./messages/transaction.yaml
                 dump: scheme
 
           # ...
@@ -106,9 +106,9 @@ TCP vs UDP
             input-channel:           
               init:                       
                 tll.proto: pub+tcp                 
-                tll.host: ../pub.socket # подключаемся к тому же адресу / сокету
+                tll.host: ./pub.socket  # подключаемся к тому же адресу / сокету
                 mode: client            # сервис - клиент, он получает данные
-                scheme: yaml://transaction.yaml 
+                scheme: yaml://./messages/transaction.yaml 
                 dump: yes
               depends: logic  
 
@@ -117,13 +117,13 @@ TCP vs UDP
   - Мы используем ``pub+tcp``, потому что в нём уже реализована логика подключения клиентов и отправки им сообщений. Клиентов можно подключить сколько угодно, а сам сервер просто отправляет сообщения, не заботясь о том, подключён ли кто-то к нему. Если использовать чистый ``tcp``, то нужно будет самостоятельно реализовывать логику: запоминать адреса клиентов; добавлять в каждое сообщение поле addr при его отправке; следить за тем, что клиент действительно подключён, чтобы не получать сообщение об ошибке при отправке. ``pub+tcp`` всё это делает за нас!
   - Для проверки открываем 2 окна терминала и запускаем команды:
 
-    ``gentest$ tll-processor generator-processor.yaml`` 
+    ``$ tll-processor generator-processor.yaml`` 
 
-    ``comtest$ tll-pyprocessor commission-processor.yaml``
+    ``$ tll-pyprocessor commission-processor.yaml``
 
   - Нужно запускать сначала сервер / генератор, потому что иначе клиент не поймёт куда подключаться и будет ошибка
   - В логах 2 сервисов будут видны сообщения получения / передачи сообщения
-  - Проверить работу можно: ``comtest$ tll-read output.dat --seq 0:2``:
+  - Проверить работу можно: ``$ tll-read output.dat --seq 0:2``:
 
     .. code::
 
