@@ -39,12 +39,12 @@ Config и python
               #...
 
               # создаём конфиг, который будет являться подразделом в конфиге 'info'
-              requestConfig = Config()
-              requestConfig["mode"] = 'seq'       # 'seq' - режим открытия
-              requestConfig["seq"]  = '0'         # '0' - номер первого запрошенного сообщения
+              request_config = Config()
+              request_config["mode"] = 'seq'       # 'seq' - режим открытия
+              request_config["seq"]  = '0'         # '0' - номер первого запрошенного сообщения
 
               # в раздел 'info' записываем новый раздел с именем 'input-open-params'
-              self.config_info.set("input-open-params", requestConfig)
+              self.config_info.set("input-open-params", request_config)
 
       # ...
 
@@ -61,13 +61,13 @@ Config и python
         
 
               # в момент открытия считаем из конфига нужное поле
-              self._lastSeq = self.config_info["input-open-params.seq"]
+              self._last_seq = self.config_info["input-open-params.seq"]
 
               # в конфиге хранятся только строки, поэтому неэффективно будет его использовать с другими типами данных
               # мы храним данные в целочисленной переменной, которой легко манипулировать
               # если кому-то понадобится её значение, то он обратится к конфигу
               # конфиг делегирует запрос callback-функции, которая вернёт строковое представление числа
-              self.config_info["input-open-params.seq"] = lambda: str(self._lastSeq)
+              self.config_info["input-open-params.seq"] = lambda: str(self._last_seq)
         
         
           def _close(self):
@@ -76,24 +76,24 @@ Config и python
               # в момент закрытия мы снова обновляем значение в конфиге
               # в этот раз там будет храниться просто строка
               # после закрытия может пропасть возможность отработать нормально callback-функции
-              self.config_info["input-open-params.seq"] = str(self._lastSeq)
+              self.config_info["input-open-params.seq"] = str(self._last_seq)
 
-          # в _logic(...) с каждым новым полученным сообщением мы пишем self._lastSeq = msg.seq + 1
-          # self._lastSeq по факту хранит в себе номер следующего ожидаемого сообщения
+          # в _logic(...) с каждым новым полученным сообщением мы пишем self._last_seq = msg.seq + 1
+          # self._last_seq по факту хранит в себе номер следующего ожидаемого сообщения
 
       # ...
 
 Config и С++
 ^^^^^^^^^^^^
 
-  - Теперь реализуем работу с config в C++, для этого добавим возможность генератору сделок в момент открытия канала выставлять ``id`` следующего генерируемого сообщения. Обновим класс в ``transaction-generator.h``:
+  - Теперь реализуем работу с config в C++, для этого добавим возможность генератору сделок в момент открытия канала выставлять ``id`` следующего генерируемого сообщения. Обновим класс в ``./messages/transaction-generator.h``:
 
     .. code:: c++
 
       // ...
 
-          void SetNextTransactionId( int64_t nextTransactionId ) {
-              _nextTransactionId = nextTransactionId;
+          void set_next_transaction_id( int64_t next_tr_id ) {
+              _next_transaction_id = next_tr_id;
           }
 
       // ...
@@ -109,16 +109,16 @@ Config и С++
               // ...
 
               // создаём новый конфиг/раздел
-              auto transactionGeneratorConfig = tll::Config();
+              auto transaction_generator_config = tll::Config();
 
               // записываем туда значение переменной
-              transactionGeneratorConfig.set("next-id", "666");
+              transaction_generator_config.set("next-id", "666");
 
               // мы можем передать туда не строку, а число, но для этого использовать функцию setT
-              // transactionGeneratorConfig.setT("next-id", 666);
+              // transaction_generator_config.setT("next-id", 666);
 
               // записываем в раздел 'info' конфига новый раздел
-              config_info().set("transaction-generator", transactionGeneratorConfig);
+              config_info().set("transaction-generator", transaction_generator_config);
         
               return 0;
           }
@@ -128,10 +128,10 @@ Config и С++
               // вычитываем из конфига в нужный тип данных значение
               // getT возвращает tll::expected, потому что в конфиге могло не быть правильных данных
               // звёздочка возвращает нам запрошенные даныне
-              auto nextId = *config_info().getT<int64_t>("transaction-generator.next-id");
+              auto next_id = *config_info().getT<int64_t>("transaction-generator.next-id");
 
               // устанавливаем значение в генераторе
-              _transactionGenerator.SetNextTransactionId(nextId);
+              _transaction_generator.set_next_transaction_id(next_id);
                 
               return 0;
           }
@@ -142,11 +142,11 @@ Config и С++
     .. code:: c++
 
       /* 
-        предположим, что у нас есть переменная в классе - _nextId
-        _nextId будет каждый раз увеличиваться при генерировании сообщения
+        предположим, что у нас есть переменная в классе - _next_id
+        _next_id будет каждый раз увеличиваться при генерировании сообщения
 
         чтобы связать её с конфигом мы напишем строчку:
-        config_info().set_ptr("transaction-generator.next-id", &_nextId);
+        config_info().set_ptr("transaction-generator.next-id", &_next_id);
 
         set_ptr автоматически создаёт callback-функцию, которая берёт значение по ссылке,
         а затем переводит его в C-строку и возвращает
@@ -157,16 +157,16 @@ Config и С++
       // ...
 
           int _open(const tll::ConstConfig &) {
-              _nextId = *config_info().getT<int64_t>("transaction-generator.next-id");
-              _transactionGenerator.SetNextTransactionId(_nextId);
+              _next_id = *config_info().getT<int64_t>("transaction-generator.next-id");
+              _transaction_generator.set_next_transaction_id(_next_id);
                 
-              config_info().set_ptr("transaction-generator.next-id", &_nextId);
+              config_info().set_ptr("transaction-generator.next-id", &_next_id);
               
               return 0;
           }
           
           int _close() {
-              config_info().setT("transaction-generator.next-id", _nextId);
+              config_info().setT("transaction-generator.next-id", _next_id);
               return 0;
           }
 
