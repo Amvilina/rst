@@ -66,18 +66,18 @@ Overview stream+
           # generator - сервер / производитель данных
           init:
             tll.proto: stream+pub+tcp # здесь добавляется просто stream+
-            tll.host: ../pub.socket
+            tll.host: ./pub.socket
             mode: server
             autoseq: true
             dump: yes
-            scheme: yaml://../comtest/transaction.yaml
+            scheme: yaml://./messages/transaction.yaml
 
             # новые поля, обязательные для stream+:
 
             # через этот канал будет осуществляться связь с отдельными клиентами
             # мы используем просто tcp, потому что каждый клиент захочет получать свои данные
             # нам здесь не нужна трансляция данных, как в pub+tcp
-            request: tcp://../request.socket
+            request: tcp://./request.socket
             
             # хранилище, где будут храниться все отправленные сообщения
             # обязательно должна быть директория, поэтому перед запуском её нужно создать:
@@ -97,10 +97,10 @@ Overview stream+
           # commission - клиент / потребитель данных
           init:
             tll.proto: stream+pub+tcp
-            tll.host: ../pub.socket 
+            tll.host: ./pub.socket 
             mode: client         
-            request: tcp://../request.socket
-            scheme: yaml://transaction.yaml
+            request: tcp://./request.socket
+            scheme: yaml://./messages/transaction.yaml
             dump: yes
 
           # параметры открытия канала
@@ -111,7 +111,7 @@ Overview stream+
           
       # ...
 
-  - Запустим сначала сервер: ``/gentest$ tll-processor generator-processor``, подождём пока он сгенерирует данные. Затем запустим клиента в другом окне терминала: ``/comtest$ tll-pyprocessor commission-processor``. В итоге мы начнём получать онлайн данные ( в нашем случае, начиная с ``seq = 10`` ), не имея доступа к старым:
+  - Запустим сначала сервер: ``$ tll-processor generator-processor``, подождём пока он сгенерирует данные. Затем запустим клиента в другом окне терминала: ``$ tll-pyprocessor commission-processor``. В итоге мы начнём получать онлайн данные ( в нашем случае, начиная с ``seq = 10`` ), не имея доступа к старым:
 
     .. code::
 
@@ -140,7 +140,7 @@ Overview stream+
 
       # ...
 
-  - И снова запустим клиента: ``/comtest$ tll-pyprocessor commission-processor``:
+  - И снова запустим клиента: ``$ tll-pyprocessor commission-processor``:
 
     .. code::
 
