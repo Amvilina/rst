@@ -13,7 +13,6 @@
     - Логика обработки сообщений ( C++ )
     - Конфиг процессора сервиса
     - Запуск и проверка работы
-  - Рекомендую создать тестовую директорию у себя и уже в ней создавать файлы: ``$ mkdir gentest``, ``$ cd gentest``
 
 
 |
@@ -39,62 +38,55 @@
 Генерация случайной сделки
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  - Для начала нам нужно сгенерировать С++ структуру из ``transaction.yaml`` файла, который был описан раньше, это можно сделать командой: ``tll-schemegen ../comtest/transaction.yaml -o ../comtest/transaction.h``
-  - Сам файл выглядит так, ``../comtest/transaction.h``:
+  - Для начала нам нужно сгенерировать С++ структуру из ``./messages/transaction.yaml`` файла, который был описан раньше, это можно сделать командой: ``tll-schemegen ./messages/transaction.yaml -o ./messages/transaction.h``
+  - Немного отредактируем файл, чтобы он выглядел так, ``./messages/transaction.h``:
 
     .. code:: c++
 
       #pragma once
-
       #include <tll/scheme/types.h>
-      
       #pragma pack(push, 1)
-      
-      template <typename T>
-      struct tll_message_info {};
-      
+
+      namespace transaction_scheme{
+
       static constexpr std::string_view scheme_string = R"(yamls+gz://eJx9jbsKwzAMRfd+hTYtDTSlZPB3dC/GdkCQyMYPaAn598glyeBCN1107zkdsJ6dAnxGzUmbTJ7xAkBWQX+TYyQ32aTkAuhg2duZZodXyJ9QE3EeHhJ9qPOkYMHokp/KlyYFTvLF2sZ9/ApeVriuDZhsi20bIZL57z48I72dvf86jC+iPglFEP0gng1dylDf)";
-      
+
       struct Transaction
       {
+          static constexpr int msg_id = 10;
+    
           std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<int64_t, std::nano>> time;
           int64_t id;
           tll::scheme::FixedPoint<int64_t, 2> price;
           uint16_t count;
       };
-      
-      template <>
-      struct tll_message_info<Transaction>
-      {
-          static constexpr int id = 10;
-          static constexpr std::string_view name = "Transaction";
-      };
+
+      }; // namespace transaction_scheme
       #pragma pack(pop)
 
 
-
-  - Сама сделка и процесс её генерации описан в файле ``transaction-generator.h``:
+  - Сама сделка и процесс её генерации описан в файле ``./messages/transaction-generator.h``:
 
     .. code:: c++
 
       #pragma once
       #include <random>                   // для генерации случайных данных
-      #include "../comtest/transaction.h" // только что созданный файл со структурой сообщения
+      #include "transaction.h"            // только что созданный файл со структурой сообщения
       #include <tll/util/time.h>          // для tll::time_point
       
       class TransactionGenerator {
       private:
 
           // id следующей сгенерированной сделки
-          int64_t _nextTransactionId = 1;
+          int64_t _next_transaction_id = 1;
           
           // объекты для генерации случайных чисел
           std::random_device _rd;
           std::mt19937 _gen;
           
           // равномерное распределение с границами, которые задаются в конструкторе
-          std::uniform_int_distribution<int64_t> _priceDistr;
-          std::uniform_int_distribution<uint16_t> _countDistr;
+          std::uniform_int_distribution<int64_t> _price_distr;
+          std::uniform_int_distribution<uint16_t> _count_distr;
       public:
           TransactionGenerator() 
               : 
@@ -103,15 +95,15 @@
               _countDistr{ 1, 100 }
               {}
           
-          Transaction GenerateRandomWithTime( tll::time_point tp ) {
+          Transaction generate_random_with_time( tll::time_point tp ) {
               Transaction tr;
               tr.time = tp;
-              tr.id = _nextTransactionId++;
+              tr.id = _next_transaction_id++;
 
-              // _priceDistr(_gen) и _countDistr(_gen) возвращают
+              // _price_distr(_gen) и _count_distr(_gen) возвращают
               // случайные целые числа из заданных промежутков
-              tr.price = tll::util::FixedPoint<int64_t, 2> ( _priceDistr(_gen) );
-              tr.count = _countDistr(_gen);
+              tr.price = tll::util::FixedPoint<int64_t, 2> ( _price_distr(_gen) );
+              tr.count = _count_distr(_gen);
 
               return tr;
           }
@@ -134,7 +126,7 @@
       #include <tll/scheme/channel/timer.h> 
 
       // для генерации сделки
-      #include "transaction-generator.h"              
+      #include "./messages/transaction-generator.h"              
       
       // в файле <tll/channel/tagged.h> описана вспомогательная логика
       // с помощью неё можно создавать потоки с различными именами
@@ -153,7 +145,7 @@
           // в переменных будем хранить входной и выходной потоки
           tll::Channel * _input = nullptr;
           tll::Channel * _output = nullptr;
-          TransactionGenerator _transactionGenerator = {};
+          TransactionGenerator _transaction_generator = {};
       public:
 
           // название нашего сервиса
@@ -193,18 +185,18 @@
               auto timer = static_cast<const timer_scheme::absolute *>(msg->data);
 
               // создаём случайную сделку
-              Transaction tr = _transactionGenerator.GenerateRandomWithTime(timer->ts);
+              auto tr = _transaction_generator.generate_random_with_time(timer->ts);
                 
               // создаём сообщение для отправки
-              tll_msg_t transactionMsg = {
-                  .type = TLL_MESSAGE_DATA,                   // сообщение содержит данные
-                  .msgid = tll_message_info<Transaction>::id, // с нужным 'msgid'
-                  .data = &tr,                                // в 'data' хранится указатель на нужную структуру
-                  .size = sizeof(tr)                          // а в 'size' её размер
+              tll_msg_t transaction_msg = {
+                  .type = TLL_MESSAGE_DATA,                          // сообщение содержит данные
+                  .msgid = transaction_scheme::Transaction::msg_id, // с нужным 'msgid'
+                  .data = &tr,                                       // в 'data' хранится указатель на нужную структуру
+                  .size = sizeof(tr)                                 // а в 'size' её размер
               };
             
               // отправляем в выходной канал сообщение
-              _output->post(&transactionMsg);
+              _output->post(&transaction_msg);
               return 0;
           }
           
@@ -244,7 +236,7 @@
           , install: true
           )
 
-  - Теперь мы должны собрать наш модуль, для этого используем команду: ``gentest$ meson build ; ninja -vC build``
+  - Теперь мы должны собрать наш модуль, для этого используем команду: ``$ meson build ; ninja -vC build``
 
 Конфиг процессора сервиса
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -278,7 +270,7 @@
           init:
             tll.proto: file             
             tll.host: output.dat       
-            scheme: yaml://../comtest/transaction.yaml
+            scheme: yaml://./messages/transaction.yaml
             dir: w                          
             autoseq: true
             dump: scheme
@@ -294,7 +286,7 @@
 Запуск и проверка работы
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-  - Запускаем сервис: ``gentest$ tll-processor generator-processor.yaml``
+  - Запускаем сервис: ``$ tll-processor generator-processor.yaml``
   - Каждые 3 секунды мы будем видеть в логах подобное сообщение:
 
     .. code::
@@ -307,7 +299,7 @@
         id: 1
         price: 183.48
         count: 73
-  - Проверим наш файл: ``gentest$ tll-read output.dat --seq 0:5``:
+  - Проверим наш файл: ``$ tll-read output.dat --seq 0:5``:
 
     .. code::
 
