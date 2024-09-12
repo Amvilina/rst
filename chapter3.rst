@@ -76,6 +76,7 @@
       
       class TransactionGenerator {
       private:
+          using Transaction = transaction_scheme::Transaction;
 
           // id следующей сгенерированной сделки
           int64_t _next_transaction_id = 1;
@@ -91,8 +92,8 @@
           TransactionGenerator() 
               : 
               _gen{ _rd() }, 
-              _priceDistr{ 1, 100000 }, // [0.01 - 1000.00]
-              _countDistr{ 1, 100 }
+              _price_distr{ 1, 100000 }, // [0.01 - 1000.00]
+              _count_distr{ 1, 100 }
               {}
           
           Transaction generate_random_with_time( tll::time_point tp ) {
