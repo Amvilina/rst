@@ -48,7 +48,7 @@
             tll.proto: ipc
             mode: client
             master: processor/ipc
-            scheme: yaml://../src/logic/control.yaml
+            scheme: yaml://../src/processor/processor.yaml
             dump: yes
           depends: control-logic
 
@@ -172,11 +172,11 @@
 
     .. code::
 
-      2024-09-19 13:41:17.024 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 10, name: Connect, seq: 0, size: 19, addr: 0x16
+      2024-09-19 13:58:21.720 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 10, name: Connect, seq: 0, size: 19, addr: 0x16
         host: {unix: 0}
         port: 0
       
-      2024-09-19 13:41:17.025 INFO tll.channel.input-logic: Recv message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 90, addr: 0x16
+      2024-09-19 13:58:21.721 INFO tll.channel.input-logic: Recv message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 90, addr: 0x16
         dest: "output-channel"
         data:
           type: Control
@@ -185,25 +185,24 @@
           addr: 0
           data: "{"type": "commission-sum"}"
       
-      2024-09-19 13:41:17.025 INFO tll.channel.processor-client: Post message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 118
-        Failed to format message MessageForward field data.data: Offset out of bounds: offset 16777281 > data size 84
-        00000000:  26 00 00 00  0f 00 00 01  01 00 64 00  00 00 00 00  &.........d.....
-        00000010:  00 00 00 00  00 00 00 00  00 00 00 00  00 00 17 00  ................
-        00000020:  00 00 41 00  00 01 6f 75  74 70 75 74  2d 63 68 61  ..A...output-cha
-        00000030:  6e 6e 65 6c  00 63 6f 6d  6d 69 73 73  69 6f 6e 2d  nnel.commission-
-        00000040:  73 75 6d 00  00 00 00 00  00 00 00 00  00 00 00 00  sum.............
-        00000050:  00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00  ................
-        00000060:  00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00  ................
-        00000070:  00 00 00 00  00 00                                  ......
+      2024-09-19 13:58:21.721 INFO tll.channel.processor-client: Post message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 118
+        dest: "output-channel"
+        data:
+          type: 1
+          msgid: 100
+          seq: 0
+          addr: 0
+          data: "commission-sum"
       
-      2024-09-19 13:41:17.025 INFO tll.channel.input-logic: Post message: type: Data, msgid: 40, name: Ok, seq: 0, size: 0, addr: 0x16
+      2024-09-19 13:58:21.721 INFO tll.channel.input-logic: Post message: type: Data, msgid: 40, name: Ok, seq: 0, size: 0, addr: 0x16
         
-      2024-09-19 13:41:17.025 INFO tll.channel.output-channel: Post message: type: Control, msgid: 100, name: Block, seq: 0, size: 64
+      2024-09-19 13:58:21.721 INFO tll.channel.output-channel: Post message: type: Control, msgid: 100, name: Block, seq: 0, size: 64
         {type: "commission-sum"}
+      
 
       # ... block-channel logs ...
 
-      2024-09-19 13:41:17.026 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 20, name: Disconnect, seq: 0, size: 0, addr: 0x16
+      2024-09-19 13:58:21.726 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 20, name: Disconnect, seq: 0, size: 0, addr: 0x16
 
       # ...
   - Если запустить этот скрипт несколько раз, то у нас появится несколько срезов: ``$ ls blocks-storage/`` -> ``block.1.dat  block.2.dat  block.3.dat  block.4.dat``
@@ -212,11 +211,11 @@
 
     .. code::
 
-      2024-09-19 13:41:24.745 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 10, name: Connect, seq: 0, size: 19, addr: 0x100000016
+      2024-09-19 13:58:27.513 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 10, name: Connect, seq: 0, size: 19, addr: 0x100000016
         host: {unix: 0}
         port: 0
       
-      2024-09-19 13:41:24.746 INFO tll.channel.input-logic: Recv message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 65, addr: 0x100000016
+      2024-09-19 13:58:27.514 INFO tll.channel.input-logic: Recv message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 65, addr: 0x100000016
         dest: "output-channel"
         data:
           type: Control
@@ -225,20 +224,22 @@
           addr: 0
           data: ""
       
-      2024-09-19 13:41:24.746 INFO tll.channel.processor-client: Post message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 54
-        Failed to format message MessageForward field data.name: Offset out of bounds: offset 150 > data size 44
-        00000000:  26 00 00 00  0f 00 00 01  01 00 96 00  00 00 00 00  &...............
-        00000010:  00 00 00 00  00 00 00 00  00 00 00 00  00 00 17 00  ................
-        00000020:  00 00 01 00  00 01 6f 75  74 70 75 74  2d 63 68 61  ......output-cha
-        00000030:  6e 6e 65 6c  00 00                                  nnel..
+      2024-09-19 13:58:27.514 INFO tll.channel.processor-client: Post message: type: Data, msgid: 4176, name: MessageForward, seq: 0, size: 54
+        dest: "output-channel"
+        data:
+          type: 1
+          msgid: 150
+          seq: 0
+          addr: 0
+          data: ""
       
-      2024-09-19 13:41:24.746 INFO tll.channel.input-logic: Post message: type: Data, msgid: 40, name: Ok, seq: 0, size: 0, addr: 0x100000016
+      2024-09-19 13:58:27.514 INFO tll.channel.input-logic: Post message: type: Data, msgid: 40, name: Ok, seq: 0, size: 0, addr: 0x100000016
         
-      2024-09-19 13:41:24.746 INFO tll.channel.output-channel: Post message: type: Control, msgid: 150, name: Rotate, seq: 0, size: 0
+      2024-09-19 13:58:27.514 INFO tll.channel.output-channel: Post message: type: Control, msgid: 150, name: Rotate, seq: 0, size: 0
 
       # ... rotate+file logs ...
 
-      2024-09-19 13:41:24.747 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 20, name: Disconnect, seq: 0, size: 0, addr: 0x100000016
+      2024-09-19 13:58:27.514 INFO tll.channel.input-logic: Recv message: type: Control, msgid: 20, name: Disconnect, seq: 0, size: 0, addr: 0x100000016
 
       # ... 
 
