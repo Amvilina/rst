@@ -8,7 +8,7 @@
 Создание CU с помощью tll-logic-control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  - ``tll-logic-control`` - специальная логика, которая даёт возможность переадресовать полученное её сообщение
+  - ``tll-logic-control`` - специальная логика, которая даёт возможность переадресовать полученное ею сообщение нужному каналу
   - Ей отправляется специальное сообщение ``MessageForward``, которое хранит в себе адресата (``dest``) и само сообщение
   - Опишем логику в процессоре нашего генератора, ``generator-processor.yaml``:
 
@@ -28,8 +28,8 @@
           init:
             tll.proto: control
           channels:
-            processor: generator # наш основной процесс
-            input: input-logic   # канал, через который мы будем получать управляющие сообщения
+            processor: processor-client # канал для связи с процессором
+            input: input-logic          # канал, через который мы будем получать управляющие сообщения
           depends: generator
         
         # получать мы будем сообщения через простой tcp-канал
@@ -41,6 +41,16 @@
             scheme: yaml://../src/logic/control.yaml
             mode: server
             dump: yes
+
+        # обработчик сообщений должен быть связан с процессором через ipc
+        processor-client:
+          init:
+            tll.proto: ipc
+            mode: client
+            master: processor/ipc
+            scheme: yaml://../src/logic/control.yaml
+            dump: yes
+          depends: control-logic
 
         # ...
 
@@ -87,7 +97,7 @@
           # отправляем сообщение MessageForward, в 'dest' указываем нужного получателя
           # в 'data' просто записано сообщение, которое мы хотим передать
           # сообщение 'Block' с полем 'type': 'commission-sum'
-          s.post(data={'dest': 'generator', 'data': {
+          s.post(data={'dest': 'output-channel', 'data': {
                       'type': 'Control',
                       'name': 'Block',
                       'seq': 0,
@@ -134,7 +144,7 @@
           except:
               print("can't connect")
               return
-          s.post(data={'dest': 'generator', 'data': {
+          s.post(data={'dest': 'output-channel', 'data': {
                       'type': 'Control',
                       'name': 'Rotate',
                       'seq': 0,
@@ -151,59 +161,6 @@
           s.close()
       
       loop.run(main(loop))
-
-Обработка входных сообщений в генераторе
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  
-  - ``control-logic`` будет отправлять приходящие ему сообщения ( из скриптов ) в генератор, их нужно корректно обработать
-  - ``generator.cc``:
-
-    .. code:: c++
-
-      // ...
-
-          int _init(const tll::Channel::Url &, tll::Channel *master) {
-
-              // ...
-
-              // схема нашего сервиса будет совпадать со схемой _output ( stream-server )
-              // этот канал уже знает про приходящие контрольные сообщения (Block и Rotate)
-              _scheme_control.reset(_output->scheme(TLL_MESSAGE_CONTROL));
-          }
-
-          int _post(const tll_msg_t *msg, int flags) {
-
-              // проверяем, что пришли данные
-              if (msg->type != TLL_MESSAGE_DATA) 
-                  return 0;
-                  
-              // проверяем, что сообщение именно 'MessageForward'
-              if (msg->msgid != processor_scheme::MessageForward::meta_id())
-                  return 0;
-      
-              // конвертируем сообщение в нужную структуру
-              auto data = processor_scheme::MessageForward::bind(*msg);
-
-              // получаем отправленные данные
-              auto message = data.get_data();
-
-              // создаём новое сообщение, копирую данные
-              tll_msg_t m = {};
-              m.type = message.get_type();
-              m.msgid = message.get_msgid();
-              m.seq = message.get_seq();
-              m.addr.u64 = message.get_addr();
-              m.data = message.get_data().data();
-              m.size = message.get_data().size();
-
-              // отправляем его на выход ( stream-server )
-              // stream-server затем отправляет все контрольные сообщения своим каналам
-              _output->post(&m);
-
-              return 0;
-          }
-
-      // ..
 
 
 Проверка
