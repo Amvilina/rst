@@ -49,7 +49,6 @@
             tll.proto: ipc
             mode: client
             master: processor/ipc
-            scheme: yaml://../src/processor/processor.yaml
             dump: yes
 
         # ...
