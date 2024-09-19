@@ -24,33 +24,39 @@
       processor.objects:
 
         # логика, которая отвечает за обработку управляющих сообщений
-        control-logic:
+        control:
           init:
             tll.proto: control
           channels:
-            processor: processor-client # канал для связи с процессором
-            input: input-logic          # канал, через который мы будем получать управляющие сообщения
-          depends: generator
+            processor: control-processor # канал для связи с процессором
+            input: control-input         # канал, через который мы будем получать управляющие сообщения
+          depends: control-processor
         
         # получать мы будем сообщения через простой tcp-канал
         # сервер будет слушать подключения через сокет и ждать команд
-        input-logic:
+        control-input:
           init:
             tll.proto: tcp
             tll.host: ./pub-logic.socket
             scheme: yaml://../src/logic/control.yaml
             mode: server
             dump: yes
+          depends: control
 
         # обработчик сообщений должен быть связан с процессором через ipc
-        processor-client:
+        control-processor:
           init:
             tll.proto: ipc
             mode: client
             master: processor/ipc
             scheme: yaml://../src/processor/processor.yaml
             dump: yes
-          depends: control-logic
+
+        # ...
+
+        output-channel:
+          # ...
+          depends: control
 
         # ...
 
