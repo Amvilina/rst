@@ -1,0 +1,217 @@
+Глава 11. Знакомство со схемами, продолжение
+--------------------------------------------
+
+Пример генерации схемы
+^^^^^^^^^^^^^^^^^^^^^^
+
+  - Рассмотрим пример генерации схемы из ``.yaml`` файла, который имеют такую структуру:
+
+    .. code:: yaml
+
+      - name: ''
+        enums:
+          my_enum: {type: int8, enum: {FIRST: 1, SECOND: 2} }
+
+      - name: empty_message
+        id: 1
+      
+      - name: my_message
+        id: 2
+        fields:
+          - { name: enum_field, type: my_enum }
+          - { name: string_field, type: byte10, options: {type: string}}
+          - { name: time_point_field, type: uint64, options: {type: 'time_point', resolution: 'ns'} }
+          - { name: duration_field, type: int32, options: {type: 'duration', resolution: 'ms'}}
+          - { name: fixed_field, type: int64, options: {type: 'fixed8'}}
+          - { name: bits_field, type: int8, options.type: bits, bits: [a, b, c]}
+          - { name: decimal128_field, type: decimal128 }
+          - { name: bytes_field, type: byte3 }
+          - { name: message_field, type: empty_message}
+          - { name: array_field, type: 'int16[5]', list-options.count-type: int64}
+          - { name: pointer_field, type: '*int16'}
+          - { name: union_field, type: union, union: [{name: i8, type: int8}, {name: d, type: double}, {name: m, type: empty_message}]}
+          - { name: primitive_field, type: double}
+
+  - Мы получим такую струтуру для схемы и сообщений:
+
+    - У схемы ( ``tll_scheme_t`` ) в поле ``messages`` указатель на связанный список из 2-х элементов. Назовём их ``message1`` и ``message2``.
+    - Для первого сообщения:
+
+      - ``message1->next == message2``
+      - ``message1->msgid == 1``
+      - ``message1->name == 'empty_message'``
+      - ``message1->size == 0``
+      - ``message1->fields == nullptr``
+
+    - Для второго сообщения:
+
+      - ``message2->next == nullptr``
+      - ``message2->msgid == 2``
+      - ``message2->name == 'my_message'``
+      - ``message2->size == 94``
+      - ``message2->fields`` указывает на связанный список из 13 полей. Назовём их ``field1``, ``field2``, ... , ``field13``.
+  - Рассмотрим каждое поле:
+
+    - ``field1``:
+
+      - ``field1->next == field2``
+      - ``field1->name == enum_field``
+      - ``field1->offset == 0``
+      - ``field1->size == 1``
+      - ``field1->type == TLL_SCHEME_FIELD_INT8``
+      - ``field1->sub_type == TLL_SCHEME_SUB_ENUM``
+      - ``field1->type_enum->values == enum1``
+
+        - ``enum1``:
+
+          - ``enum1->next == enum2``
+          - ``enum1->name == 'FIRST'``
+          - ``enum1->value == 1``
+
+        - ``enum2``:
+
+          - ``enum1->next == nullptr``
+          - ``enum1->name == 'SECOND'``
+          - ``enum1->value == 2``
+
+    - ``field2``:
+
+      - ``field2->next == field3``
+      - ``field2->name == string_field``
+      - ``field2->offset == 1``
+      - ``field2->size == 10``
+      - ``field2->type == TLL_SCHEME_FIELD_BYTES``
+      - ``field2->sub_type == TLL_SCHEME_SUB_BYTE_STRING``
+
+    - ``field3``:
+
+      - ``field3->next == field4``
+      - ``field3->name == time_point_field``
+      - ``field3->offset == 11``
+      - ``field3->size == 8``
+      - ``field3->type == TLL_SCHEME_FIELD_UINT64``
+      - ``field3->sub_type == TLL_SCHEME_SUB_TIME_POINT``
+      - ``field3->time_resolution == TLL_SCHEME_TIME_NS``
+
+    - ``field4``:
+
+      - ``field4->next == field5``
+      - ``field4->name == duration_field``
+      - ``field4->offset == 19``
+      - ``field4->size == 4``
+      - ``field4->type == TLL_SCHEME_FIELD_INT32``
+      - ``field4->sub_type == TLL_SCHEME_SUB_DURATION``
+      - ``field4->time_resolution == TLL_SCHEME_TIME_MS``
+
+    - ``field5``:
+
+      - ``field5->next == field6``
+      - ``field5->name == fixed_field``
+      - ``field5->offset == 23``
+      - ``field5->size == 8``
+      - ``field5->type == TLL_SCHEME_FIELD_INT64``
+      - ``field5->sub_type == TLL_SCHEME_SUB_FIXED_POINT``
+      - ``field5->fixed_precision == 8``
+
+    - ``field6``:
+
+      - ``field6->next == field7``
+      - ``field6->name == bits_field``
+      - ``field6->offset == 31``
+      - ``field6->size == 1``
+      - ``field6->type == TLL_SCHEME_FIELD_INT8``
+      - ``field6->sub_type == TLL_SCHEME_SUB_BITS``
+      - ``field7->bitfields == bit1``
+
+        - ``bit1``:
+
+          - ``bit1->next == bit2``
+          - ``bit1->name == 'a'``
+          - ``bit1->offset == 0``
+
+        - ``bit2``:
+
+          - ``bit2->next == bit3``
+          - ``bit2->name == 'b'``
+          - ``bit2->offset == 1``
+
+        - ``bit3``:
+
+          - ``bit3->next == nullptr``
+          - ``bit3->name == 'c'``
+          - ``bit3->offset == 2``
+
+
+
+    - ``field7``:
+
+      - ``field7->next == field8``
+      - ``field7->name == decimal128_field``
+      - ``field7->offset == 32``
+      - ``field7->size == 16``
+      - ``field7->type == TLL_SCHEME_FIELD_DECIMAL128``
+      - ``field7->sub_type == TLL_SCHEME_SUB_NONE``
+
+    - ``field8``:
+
+      - ``field8->next == field9``
+      - ``field8->name == bytes_field``
+      - ``field8->offset == 48``
+      - ``field8->size == 3``
+      - ``field8->type == TLL_SCHEME_FIELD_BYTES``
+      - ``field8->sub_type == TLL_SCHEME_SUB_NONE``
+
+    - ``field9``:
+
+      - ``field9->next == field10``
+      - ``field9->name == message_field``
+      - ``field9->offset == 51``
+      - ``field9->size == 0``
+      - ``field9->type == TLL_SCHEME_FIELD_MESSAGE``
+      - ``field9->sub_type == TLL_SCHEME_SUB_NONE``
+      - ``field9->type_msg == message1`` ``(empty_message)``
+
+    - ``field10``:
+
+      - ``field10->next == field11``
+      - ``field10->name == array_field``
+      - ``field10->offset == 51``
+      - ``field10->size == 18``
+      - ``field10->type == TLL_SCHEME_FIELD_ARRAY``
+      - ``field10->sub_type == TLL_SCHEME_SUB_NONE``
+      - ``field10->type_array->type == TLL_SCHEME_FIELD_INT16``
+      - ``field10->count_ptr->type == TLL_SCHEME_FIELD_INT64``
+      - ``field10->count == 5``
+
+
+    - ``field11``:
+
+      - ``field11->next == field12``
+      - ``field11->name == pointer_field``
+      - ``field11->offset == 69``
+      - ``field11->size == 8``
+      - ``field11->type == TLL_SCHEME_FIELD_POINTER``
+      - ``field11->sub_type == TLL_SCHEME_SUB_NONE``
+      - ``field11->type_ptr->type == TLL_SCHEME_FIELD_INT16``
+
+    - ``field12``:
+
+      - ``field12->next == field13``
+      - ``field12->name == union_field``
+      - ``field12->offset == 77``
+      - ``field12->size == 9``
+      - ``field12->type == TLL_SCHEME_FIELD_UNION``
+      - ``field12->sub_type == TLL_SCHEME_SUB_NONE``
+      - ``field12->type_union->size == 3``
+      - ``field12->type_union->fields[0]->type == TLL_SCHEME_FIELD_INT8``
+      - ``field12->type_union->fields[1]->type == TLL_SCHEME_FIELD_DOUBLE``
+      - ``field12->type_union->fields[2]->type == TLL_SCHEME_FIELD_MESSAGE``
+
+    - ``field13``:
+
+      - ``field13->next == nullptr``
+      - ``field13->name == primitive_field``
+      - ``field13->offset == 86``
+      - ``field13->size == 8``
+      - ``field13->type == TLL_SCHEME_FIELD_DOUBLE``
+      - ``field13->sub_type == TLL_SCHEME_SUB_NONE``
